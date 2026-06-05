@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(try { $r = Invoke-RestMethod -Uri \"http://localhost:8080/api/v1/auth/login\" -Method Post -ContentType \"application/json\" -Body '{\"kullaniciAdi\":\"tunahan.basar\",\"sifre\":\"Arabica.2026!\"}' -TimeoutSec 10; echo \"LOGIN_OK rol=$\\($r.rol\\) tokenLen=$\\($r.token.Length\\)\" } catch { echo \"LOGIN_FAIL: $\\($_.Exception.Message\\)\"; if \\($_.Exception.Response\\) { echo \"HTTP $\\($_.Exception.Response.StatusCode.value__\\)\" } }; echo \"=== health ===\"; try { Invoke-RestMethod -Uri \"http://localhost:8080/health\" -TimeoutSec 10 } catch { echo \"health: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(docker compose ls)"
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Arabica.Infrastructure — EF Core (Npgsql), Confluent.Kafka, transactional outbox, background services.
+    Implements the Application ports. EF Core is used as ORM ONLY; Liquibase owns the schema.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.11" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
+    <PackageReference Include="Confluent.Kafka" Version="2.6.1" />
+    <!-- ESB. MassTransit 8.x is Apache-2.0 (free); pinned to 8.x (v9 moves to commercial). -->
+    <PackageReference Include="MassTransit" Version="8.3.0" />
+    <PackageReference Include="MassTransit.Kafka" Version="8.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <!-- Identity/security: salted PBKDF2 hashing, JWT issuance, TOTP MFA. -->
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="8.0.11" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.1.2" />
+    <PackageReference Include="Otp.NET" Version="1.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arabica.Application\Arabica.Application.csproj" />
+    <ProjectReference Include="..\Arabica.Domain\Arabica.Domain.csproj" />
+    <ProjectReference Include="..\Arabica.Contracts\Arabica.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

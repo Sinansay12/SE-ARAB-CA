@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="hist-002-outbox" author="arabica">
+        <createTable tableName="outbox" schemaName="hist" remarks="Transactional outbox — guarantees DB commit and Kafka publish cannot diverge">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="pk_outbox" nullable="false"/>
+            </column>
+            <column name="olay_tipi" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="anahtar" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="icerik" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+            <column name="olusma_zamani" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="yayinlandi_mi" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="yayinlanma_zamani" type="timestamptz"/>
+        </createTable>
+        <createIndex tableName="outbox" schemaName="hist" indexName="ix_outbox_yayinlandi_mi">
+            <column name="yayinlandi_mi"/>
+        </createIndex>
+        <rollback>
+            <dropTable tableName="outbox" schemaName="hist"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

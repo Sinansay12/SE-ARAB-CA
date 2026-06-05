@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Liquibase is the schema authority for Arabica (see migration-blueprint.md §8).
+  EF Core maps to these tables but never creates/migrates them.
+  Two schemas enforce NFR-P4 isolation: `hot` (real-time reads) vs `hist` (historical writes/outbox/audit).
+-->
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="000-schemas" author="arabica">
+        <sql>CREATE SCHEMA IF NOT EXISTS hot;</sql>
+        <sql>CREATE SCHEMA IF NOT EXISTS hist;</sql>
+        <sql>CREATE SCHEMA IF NOT EXISTS kimlik;</sql>
+        <rollback>
+            <sql>DROP SCHEMA IF EXISTS hot CASCADE;</sql>
+            <sql>DROP SCHEMA IF EXISTS hist CASCADE;</sql>
+            <sql>DROP SCHEMA IF EXISTS kimlik CASCADE;</sql>
+        </rollback>
+    </changeSet>
+
+    <include file="hot/001-sube.xml" relativeToChangelogFile="true"/>
+    <include file="hot/002-sube-aktif.xml" relativeToChangelogFile="true"/>
+    <include file="hot/003-personel.xml" relativeToChangelogFile="true"/>
+    <include file="hist/001-transfer-emirleri.xml" relativeToChangelogFile="true"/>
+    <include file="hist/002-outbox.xml" relativeToChangelogFile="true"/>
+    <include file="hist/003-denetim-log.xml" relativeToChangelogFile="true"/>
+    <include file="kimlik/001-kullanicilar.xml" relativeToChangelogFile="true"/>
+
+</databaseChangeLog>

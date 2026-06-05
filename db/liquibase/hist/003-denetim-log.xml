@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="hist-003-denetim-log" author="arabica">
+        <createTable tableName="denetim_log" schemaName="hist" remarks="Audit trail (NFR-S7): who/when/from which IP/which action">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_denetim_log" nullable="false"/>
+            </column>
+            <column name="aktor" type="varchar(150)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ip_adresi" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="eylem" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="detay" type="varchar(1000)"/>
+            <column name="zaman" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="denetim_log" schemaName="hist" indexName="ix_denetim_zaman">
+            <column name="zaman"/>
+        </createIndex>
+        <rollback>
+            <dropTable tableName="denetim_log" schemaName="hist"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

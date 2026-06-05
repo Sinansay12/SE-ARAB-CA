@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="kimlik-001-kullanicilar" author="arabica">
+        <createTable tableName="kullanicilar" schemaName="kimlik" remarks="Credential store (auth). KVKK: no PII analytics data; salted password hash only.">
+            <column name="kullanici_adi" type="varchar(150)">
+                <constraints primaryKey="true" primaryKeyName="pk_kullanicilar" nullable="false"/>
+            </column>
+            <column name="parola_hash" type="varchar(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rol" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sube_id" type="int"/>
+            <column name="mfa_secret" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <rollback>
+            <dropTable tableName="kullanicilar" schemaName="kimlik"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/TestResults/
+tests/
+.git/
+*.md
+*.pdf
+dp-keys/

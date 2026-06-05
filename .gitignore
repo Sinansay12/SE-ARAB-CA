@@ -1,0 +1,65 @@
+# ─────────────────────────────────────────────────────────────
+# Arabica Cafe — .gitignore (.NET 8 + Docker + Liquibase)
+# ─────────────────────────────────────────────────────────────
+
+# .NET build artifacts
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userprefs
+.vs/
+
+# Publish output
+[Pp]ublish/
+*.publishsettings
+publish-profiles/
+
+# Test results / coverage
+[Tt]est[Rr]esults/
+*.trx
+coverage*.json
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!**/packages/build/
+
+# Rider / VS Code / Visual Studio
+.idea/
+.vscode/
+*.sln.iml
+
+# Local secrets (never commit) — AES keys, connection strings, JWT keys
+appsettings.*.Local.json
+appsettings.Local.json
+secrets/
+*.pfx
+*.p12
+.env
+.env.*
+!.env.example
+
+# Data Protection keyring (AES-256 keys) + runtime logs
+**/dp-keys/
+*.log
+logs/
+
+# Docker local overrides
+docker-compose.override.yml
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Node (SPA uses CDN, but guard against any local tooling)
+node_modules/

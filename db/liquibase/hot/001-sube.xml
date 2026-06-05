@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="hot-001-sube" author="arabica">
+        <createTable tableName="sube" schemaName="hot" remarks="Şube (branch) — real-time occupancy state">
+            <column name="sube_id" type="int">
+                <constraints primaryKey="true" primaryKeyName="pk_sube" nullable="false"/>
+            </column>
+            <column name="ad" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="maksimum_kapasite" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="anlik_musteri_sayisi" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="aktif_personel_sayisi" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <rollback>
+            <dropTable tableName="sube" schemaName="hot"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

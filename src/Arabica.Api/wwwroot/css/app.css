@@ -1,0 +1,16 @@
+body { background: #f7f4f0; }
+.navbar-brand { font-weight: 700; }
+.progress { height: 22px; }
+.nav-link.active { font-weight: 600; }
+.sidebar .nav-link { color: #4a3f35; }
+.card h6 { margin-bottom: .25rem; }
+.modal { z-index: 1080; }
+.gate-badge { font-size: .7rem; }
+pre { white-space: pre-wrap; }
+.stat-card .deger { font-size: 1.8rem; font-weight: 700; transition: color .4s; }
+.stat-card .etiket { font-size: .8rem; color: #6c757d; }
+.progress-bar { transition: width .6s ease, background-color .4s; }
+.menu-baslik { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: #9a8c7a; padding: .5rem .75rem .2rem; }
+.kvkk-vurgu { border-left: 4px solid #198754; background: #f0f9f4; }
+canvas { max-height: 260px; }
+

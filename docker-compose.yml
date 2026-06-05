@@ -1,0 +1,93 @@
+# Arabica Cafe — full stack. Ordering: postgres healthy → liquibase applies hot/hist/kimlik → app starts.
+# DB and Kafka ports are NOT published to the host (NFR-S4); only the app's 8080 is exposed.
+services:
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: arabica
+      POSTGRES_USER: arabica
+      POSTGRES_PASSWORD: arabica
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arabica -d arabica"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [arabica]
+
+  kafka:
+    image: apache/kafka:3.7.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+    networks: [arabica]
+
+  liquibase:
+    image: liquibase/liquibase:4.29.2
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./db/liquibase:/liquibase/changelog
+    command:
+      - --searchPath=/liquibase/changelog
+      - --changeLogFile=changelog-master.xml
+      - --url=jdbc:postgresql://postgres:5432/arabica
+      - --username=arabica
+      - --password=arabica
+      - update
+    networks: [arabica]
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      liquibase:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__HotDb: "Host=postgres;Port=5432;Database=arabica;Username=arabica;Password=arabica"
+      ConnectionStrings__HistoryDb: "Host=postgres;Port=5432;Database=arabica;Username=arabica;Password=arabica"
+      ConnectionStrings__KimlikDb: "Host=postgres;Port=5432;Database=arabica;Username=arabica;Password=arabica"
+      Kafka__BootstrapSunuculari: "kafka:9092"
+      Esb__Transport: "Kafka"
+      ArkaPlanServisleri__Etkin: "true"
+      DataProtection__KeyPath: "/keys"
+      # Secret via env (never in appsettings). Override for real deployments.
+      Jwt__Imza: "COMPOSE-arabica-cafe-imza-anahtari-EN-AZ-32-BAYT-2026!"
+    ports:
+      - "8080:8080"
+    volumes:
+      - dpkeys:/keys
+    networks: [arabica]
+
+volumes:
+  pgdata:
+  dpkeys:
+
+networks:
+  arabica:
+    driver: bridge

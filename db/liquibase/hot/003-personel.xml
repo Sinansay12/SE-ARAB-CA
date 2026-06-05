@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="hot-003-personel" author="arabica">
+        <createTable tableName="personel" schemaName="hot" remarks="Anonymized personnel (KVKK): only a non-identifying handle + numeric IDs — NO TC/name/phone.">
+            <column name="personel_id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_personel" nullable="false"/>
+            </column>
+            <column name="sube_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="takma_ad" type="varchar(150)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tip" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="aktif" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="personel" schemaName="hot" indexName="ix_personel_sube">
+            <column name="sube_id"/>
+        </createIndex>
+        <rollback>
+            <dropTable tableName="personel" schemaName="hot"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
