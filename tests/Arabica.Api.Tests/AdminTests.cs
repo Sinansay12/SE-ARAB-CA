@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Arabica.Application.Tohumlama;
 using Arabica.Contracts.Api;
 using Arabica.Infrastructure.Kimlik;
 using FluentAssertions;
@@ -104,6 +105,21 @@ public sealed class AdminTests
         (await c.GetAsync("/api/v1/admin/denetim")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await c.PostAsync("/api/v1/admin/optimizasyon/tetikle", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await c.PatchAsync("/api/v1/admin/sube/1/aktiflestir", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await c.PostAsync("/api/v1/admin/seed", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DemoSeed_koordinator_200_ve_testte_iliskisel_olmadigi_icin_noop()
+    {
+        using var f = new ApiFabrika();
+        var c = await KoordinatorAsync(f);
+
+        var r = await c.PostAsync("/api/v1/admin/seed", null);
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Zengin tohum yalnızca ilişkisel (Postgres) store'da çalışır; testler EF InMemory → güvenli no-op,
+        // mevcut minimal tohum (ve 92 test) değişmez.
+        (await r.Content.ReadFromJsonAsync<DemoTohumSonucu>())!.Tohumlandi.Should().BeFalse();
     }
 
     // ---- Personel (KVKK) ----

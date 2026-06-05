@@ -1,4 +1,5 @@
 using Arabica.Api.Guvenlik;
+using Arabica.Application.Tohumlama;
 using Arabica.Application.Yonetim;
 using Arabica.Contracts.Api;
 using MediatR;
@@ -75,6 +76,13 @@ public sealed class AdminController(ISender sender) : ControllerBase
     [HttpGet("strateji")]
     public async Task<ActionResult<StratejiYaniti>> StratejiGetir(CancellationToken ct)
         => Ok(await sender.Send(new StratejiQuery(), ct));
+
+    // ---- DEMO ONLY: zengin demo veri setini tohumla / yeniden doldur ----
+    // `reset=true` mevcut demo verisini (şube/personel/transfer/denetim) siler ve yeniden tohumlar (kimlik
+    // kullanıcılarına dokunmaz). Yalnızca ilişkisel (Postgres) ortamda iş yapar; aksi halde no-op döner.
+    [HttpPost("seed")]
+    public async Task<ActionResult<DemoTohumSonucu>> DemoTohumla([FromQuery] bool reset = false, CancellationToken ct = default)
+        => Ok(await sender.Send(new DemoTohumlaCommand(reset), ct));
 
     [HttpPost("strateji")]
     public async Task<ActionResult<StratejiYaniti>> StratejiAyarla([FromQuery] string? ad, CancellationToken ct)

@@ -315,7 +315,10 @@ Observer fan-out (ingest yolunda her POS olayında): `OptimizasyonTetikleyiciHan
 
 ## 10.9 UI (Demo SPA) Kullanımı ve Kanıtı
 
-**Adres:** `http://localhost:8080` (statik SPA, `wwwroot` — vanilla ES6 + Bootstrap 5 + SignalR CDN; npm/derleme adımı yok). **Swagger:** `/swagger`.
+**Adres:** `http://localhost:8080` (statik SPA, `wwwroot` — vanilla ES6 + SignalR/Chart.js CDN; npm/derleme adımı yok). **Swagger:** `/swagger`.
+
+> **Tasarım (UI yeniden kaplama):** Arayüz, Claude Design "Arabica Panel" handoff'undaki **espresso/krem kahve tasarım sistemiyle** (Hanken Grotesk · Spectral · JetBrains Mono; soğuk-renksiz kahve paleti; soldan sabit yan menü + üst bar) yeniden kaplanmıştır. Bootstrap kaldırılmış; tüm görsel dil `wwwroot/css/app.css` içindeki tasarım sistemine taşınmıştır. **İşlevsellik birebir korunmuştur** — tüm ekranlar canlı API'ye bağlıdır (giriş/JWT, rol bazlı menü, 5 frozen uç, Yönetim ekranları, SignalR, MFA modalı, Chart.js doluluk/trend, KVKK, 15 dk idle çıkış). Genel Bakış ekranı tasarıma uygun olarak **canlı doluluk barları** (`/sube/doluluk`) + **otonom transfer öneri kartları** (`/transfer/oneriler`, MFA ile onay) + Chart.js grafiklerini birlikte gösterir; Transfer Onayları **durum sekmelidir** (Bekliyor/Onaylandı/Reddedildi/Tamamlandı).
+
 **Kimlik:** `tunahan.basar` (Koordinatör) / `sinan.say` (Müdür), şifre `Arabica.2026!`. **MFA TOTP secret (demo):** `JBSWY3DPEHPK3PXP` — modaldeki "🔑 Demo MFA kodu üret" düğmesi kodu istemci tarafında üretir.
 JWT **sessionStorage**'da tutulur (NFR-S1), `Authorization: Bearer` ile gönderilir; **15 dk işlemsizlikte otomatik çıkış** (NFR-S8). Menü **rol bazlıdır**: erişilemeyen öğe DOM'a **eklenmez** (RBAC §2 — Şube Müdürü'nde "Raporlar" yoktur).
 
@@ -360,6 +363,7 @@ Mevcut mimariye **eklemeli** olarak (5 frozen sözleşme, KVKK, İş Kanunu, out
 | `POST /admin/optimizasyon/tetikle` | Canlı motor: darboğaz tespiti → öneri üretimi | **Strategy** + İş Kanunu (CoR) |
 | `GET/POST /admin/strateji` | Aktif stratejiyi oku / **çalışma-zamanında değiştir** | **Strategy** (keyed-DI + override) |
 | `GET /admin/denetim` | Sayfalı denetim logu (aktör + IP + zaman) | NFR-S7 |
+| `POST /admin/seed?reset=true` | **Demo-only** zengin veri tohumlama / yeniden doldurma (idempotent; `reset` ile temizle+yeniden) | §11.C; `IsRelational()`-kapılı |
 | `GET /api/v1/ozet` | Rol-duyarlı özet (koord: tümü · müdür: kendi şubesi) | CQRS read |
 
 Yeni ESB integration olayı **`TransferOnerildi`** (yeni BEKLIYOR öneriler) outbox→Kafka rider→iki consumer→SignalR akar.
@@ -394,15 +398,15 @@ Yeni ESB integration olayı **`TransferOnerildi`** (yeni BEKLIYOR öneriler) out
 |-------|:----:|--------|
 | `Arabica.Domain.Tests` | 37 | Durum makinesi, İş Kanunu CoR, doluluk hesabı, Strategy, Factory, **personel ±N varlık davranışı** |
 | `Arabica.Application.Tests` | 12 | CQRS handler atomikliği, TransactionBehavior, Observer fan-out, Builder, **ONAYLA→tamamlayıcı delegasyonu + yetersiz-personel hatası** |
-| `Arabica.Api.Tests` | 32 | 5 uç sözleşmesi, JWT, RBAC (+ **şube-kapsam**), MFA, durum makinesi (HTTP), `/transfer/gecmis`, **+11 admin**, **+4 personel-taşıma** (Personel ±N, Ekipman nötr, kapasite-aşımı 409, idempotent çift-taşıma yok), **+2 şube aktifleştirme** (pasif→doluluk geri döner, 404) |
+| `Arabica.Api.Tests` | 33 | 5 uç sözleşmesi, JWT, RBAC (+ **şube-kapsam**), MFA, durum makinesi (HTTP), `/transfer/gecmis`, **+11 admin**, **+4 personel-taşıma** (Personel ±N, Ekipman nötr, kapasite-aşımı 409, idempotent çift-taşıma yok), **+2 şube aktifleştirme** (pasif→doluluk geri döner, 404), **+1 demo-seed ucu** (koordinatör 200 / InMemory no-op) |
 | `Arabica.Integration.Tests` | 13 | Gerçek Postgres (outbox + **atomik personel-taşıma** atomikliği, şema izolasyonu), gerçek Kafka, ESB 2-consumer harness |
-| **Toplam** | **94** | `dotnet test` (proje-bazlı) — 0 başarısız, 0 atlanan |
+| **Toplam** | **95** | `dotnet test` (proje-bazlı) — 0 başarısız, 0 atlanan |
 
 `dotnet test` çıktısı (proje-bazlı; tam çözümü çalışan stack + Testcontainers ile aynı anda koşturmak test-host'ta OOM yaratabilir — projeler ayrı veya stack durdurularak çalıştırılmalıdır):
 ```
 Başarılı! - Başarısız: 0, Başarılı: 37, Atlanan: 0  - Arabica.Domain.Tests.dll
 Başarılı! - Başarısız: 0, Başarılı: 12, Atlanan: 0  - Arabica.Application.Tests.dll
-Başarılı! - Başarısız: 0, Başarılı: 32, Atlanan: 0  - Arabica.Api.Tests.dll
+Başarılı! - Başarısız: 0, Başarılı: 33, Atlanan: 0  - Arabica.Api.Tests.dll
 Başarılı! - Başarısız: 0, Başarılı: 13, Atlanan: 0  - Arabica.Integration.Tests.dll  (gerçek Postgres + Kafka)
 ```
 > Not: `Arabica.Integration.Tests` Testcontainers ile **gerçek PostgreSQL 16 + Kafka** konteynerleri başlatır; ESB iki-consumer testi MassTransit in-memory test harness + EF InMemory ile Docker'sız çalışır.
@@ -460,6 +464,37 @@ Başarılı! - Başarısız: 0, Başarılı: 13, Atlanan: 0  - Arabica.Integrati
 | Koordinatör `PATCH /admin/sube/9999/aktiflestir` | `404` ✅ |
 
 **Regresyon:** 2 yeni Api testi (pasif→aktif→doluluk geri döner; bilinmeyen şube 404) + müdür-403 onayı; Fix #1'in personel-taşıma davranışına dokunulmadı. Toplam **94 test** yeşil (§11).
+
+---
+
+## 11.C Zengin Demo Veri Tohumlayıcı (Gerçekçi Veri Seti)
+
+Boş bir veritabanında gösterge paneli/grafikler/raporlar/denetim ekranları boş görünüyordu. Tohumlayıcı, **iç tutarlı ve gerçekçi** bir Isparta/Göller-bölgesi anlık görüntüsü ile genişletildi (eklemeli).
+
+**Ne tohumlanır (yalnız ilişkisel Postgres'te; testler etkilenmez):**
+- **7 şube** → kasıtlı **Yeşil/Sarı/Kırmızı karışımı** (atıl ↔ darboğaz); **1 şube pasif** (Aktifleştir akışı için). `AnlikMusteriSayisi/MaksimumKapasite` ile seviye üretilir.
+- **27 personel** (anonim) → her şubeye birkaç barista; **KVKK: yalnız `TakmaAd` + sayısal ID — TC/ad-soyad/telefon YOK**. Sayılar her şubenin `AktifPersonelSayisi` değeriyle **birebir tutarlı**.
+- **16 transfer geçmişi** → durum makinesine uygun dağılım: **6 Tamamlandı · 4 Reddedildi** (TR gerekçeli) **· 3 Onaylandı · 3 Bekliyor**; `Personel`/`Ekipman` karışık; zaman damgaları ~2 haftaya yayılı.
+- **26 denetim kaydı** → giriş (başarılı/başarısız) + admin/transfer eylemleri; her biri **aktör + IP + zaman** ile.
+
+**Tasarım / kısıtlar:**
+- **Şema izolasyonu:** şube/personel → `hot`; transfer/denetim → `hist` (ayrı DbContext'ler; **DDL yok** — Liquibase sahibi). Tohumlama, durum geçişlerinin domain olaylarını **outbox'a yazmaz** (saf anlık görüntü; ESB yeniden tetiklenmez).
+- **Idempotent:** yalnız DB boşken tohumlar (her açılışta tekrarlamaz). **Test izolasyonu:** zengin tohum **yalnız `IsRelational()`** olduğunda çalışır; API testleri **EF InMemory** kullandığından **mevcut minimal tohum (ve 92 test) değişmez** — `IDemoVeriTohumlayici` (Application portu) → `DemoVeriTohumlayici` (Infrastructure).
+- **Demo-only yeniden doldurma:** `POST /api/v1/admin/seed?reset=true` (Bölge Koordinatörü; CQRS `DemoTohumlaCommand` + denetim) **veya** açılışta `Seed__Reset=true` ortam değişkeni — demo tablolarını siler ve yeniden tohumlar (kimlik kullanıcılarına dokunmaz; `down -v` gerekmez).
+
+**Canlı kanıt (`docker compose down -v && up -d --build`; koordinatör JWT):**
+
+| Doğrulama | Sonuç | Hedef |
+|-----------|:-----:|:-----:|
+| `GET /sube/doluluk` | **6 aktif** — Yeşil 2 (Merkez %35, Garaj %25) · Sarı 2 (Çarşı %75, Eğirdir %68) · Kırmızı 2 (Kampüs %96, Yalvaç %94) | karışık ✅ |
+| `GET /api/v1/ozet` | şubeSayisi=**6** · atıl=**2** · darboğaz=**2** · bekleyenTransfer=**3** | ≥6, ikisi >0, ≥3 ✅ |
+| `GET /transfer/oneriler` | **3** Bekliyor | ≥3 ✅ |
+| `GET /transfer/gecmis` | **16** (Bekliyor 3 · Onaylandı 3 · Reddedildi 4 · Tamamlandı 6) | ≥12 ✅ |
+| `GET /admin/denetim` | **27** (26 tohum + 1 giriş), hepsi IP+zaman | ≥20 ✅ |
+| KVKK taraması (personel/transfer/denetim ham JSON) | TC/ad-soyad/telefon/email/adres işaretçisi **YOK** (yalnız TakmaAd + sayısal ID) | PII yok ✅ |
+| `POST /admin/seed` (reset yok) / `?reset=true` | `tohumlandi=false` (idempotent) / `true` (temizle+yeniden) | ✅ |
+
+**Regresyon:** 1 yeni Api testi (seed ucu: koordinatör 200 + InMemory'de güvenli no-op) + müdür-403 onayı. Toplam **95 test** yeşil (§11).
 
 ---
 

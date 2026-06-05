@@ -3,6 +3,7 @@ using Arabica.Application.Denetim;
 using Arabica.Application.Kimlik;
 using Arabica.Application.Mesajlasma;
 using Arabica.Application.Ortak;
+using Arabica.Application.Tohumlama;
 using Arabica.Domain.Optimizasyon;
 using Arabica.Infrastructure.Cikti;
 using Arabica.Infrastructure.Denetim;
@@ -80,6 +81,7 @@ public static class InfrastructureKurulum
         services.AddScoped<IKimlikDogrulamaServisi, KimlikDogrulamaServisi>();
         services.AddScoped<IMfaDogrulayici, MfaDogrulayici>();
         services.AddScoped<IDenetimYazici, DenetimYazici>();
+        services.AddScoped<IDemoVeriTohumlayici, DemoVeriTohumlayici>();
         services.AddHostedService<VeriTohumlayici>();
 
         // ESB = MassTransit with TWO independent consumers (notification + audit). Transport selected by
