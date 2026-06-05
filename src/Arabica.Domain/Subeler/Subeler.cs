@@ -99,4 +99,22 @@ public sealed class Sube
     public void Pasiflestir() => Aktif = false;
 
     public void Aktiflestir() => Aktif = true;
+
+    /// <summary>True if the branch is active and has at least <paramref name="adet"/> staff to move out.</summary>
+    public bool PersonelCikarabilirMi(int adet) => Aktif && AktifPersonelSayisi >= adet;
+
+    /// <summary>Move staff OUT (transfer source). Throws if insufficient.</summary>
+    public void PersonelCikar(int adet)
+    {
+        if (adet < 0) throw new ArgumentOutOfRangeException(nameof(adet));
+        if (AktifPersonelSayisi < adet) throw new InvalidOperationException("Kaynak şubede yeterli aktif personel yok.");
+        AktifPersonelSayisi -= adet;
+    }
+
+    /// <summary>Move staff IN (transfer target).</summary>
+    public void PersonelEkle(int adet)
+    {
+        if (adet < 0) throw new ArgumentOutOfRangeException(nameof(adet));
+        AktifPersonelSayisi += adet;
+    }
 }

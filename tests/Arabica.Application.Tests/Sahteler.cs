@@ -1,5 +1,6 @@
 using Arabica.Application.Cikti;
 using Arabica.Application.Ortak;
+using Arabica.Application.Transferler;
 using Arabica.Domain.Transferler;
 
 namespace Arabica.Application.Tests;
@@ -35,4 +36,14 @@ internal sealed class SahteBirimIsi : IBirimIsi
 internal sealed class SabitZaman(DateTimeOffset an) : IZamanSaglayici
 {
     public DateTimeOffset Simdi { get; } = an;
+}
+
+internal sealed class SahteTamamlayici(TransferTamamlamaSonucu sonuc) : ITransferTamamlayici
+{
+    public int Cagri { get; private set; }
+    public Task<TransferTamamlamaSonucu> OnaylaAsync(long transferId, CancellationToken ct)
+    {
+        Cagri++;
+        return Task.FromResult(sonuc);
+    }
 }

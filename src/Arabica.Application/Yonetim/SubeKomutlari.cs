@@ -86,6 +86,25 @@ public sealed class SubePasiflestirCommandHandler(ISubeRepository repo, IDenetim
     }
 }
 
+// ---- reactivate (undo soft-deactivate) ----
+public sealed record SubeAktiflestirCommand(int SubeId) : IKomut<SubeYonetimYaniti?>;
+
+public sealed class SubeAktiflestirCommandHandler(ISubeRepository repo, IDenetimYazici denetim)
+    : IRequestHandler<SubeAktiflestirCommand, SubeYonetimYaniti?>
+{
+    public async Task<SubeYonetimYaniti?> Handle(SubeAktiflestirCommand k, CancellationToken ct)
+    {
+        // GetirAsync loads by id WITHOUT the active-only filter, so inactive branches are reachable here
+        // (AktifleriGetirAsync would exclude them). Null → 404 at the controller.
+        var sube = await repo.GetirAsync(k.SubeId, ct);
+        if (sube is null) return null;
+        sube.Aktiflestir();
+        await repo.KaydetAsync(ct);
+        await denetim.YazAsync("ADMIN:SubeAktiflestir", $"şube {k.SubeId} aktifleştirildi", ct);
+        return SubeOlusturCommandHandler.Map(sube);
+    }
+}
+
 // ---- list (admin: all incl. inactive) ----
 public sealed record SubeYonetimListesiQuery : ISorgu<IReadOnlyList<SubeYonetimYaniti>>;
 

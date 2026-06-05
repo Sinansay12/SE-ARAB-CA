@@ -39,6 +39,13 @@ public sealed class AdminController(ISender sender) : ControllerBase
         return sonuc is null ? Problem(statusCode: StatusCodes.Status404NotFound, title: "Şube bulunamadı") : Ok(sonuc);
     }
 
+    [HttpPatch("sube/{id:int}/aktiflestir")]
+    public async Task<ActionResult<SubeYonetimYaniti>> SubeAktiflestir(int id, CancellationToken ct)
+    {
+        var sonuc = await sender.Send(new SubeAktiflestirCommand(id), ct);
+        return sonuc is null ? Problem(statusCode: StatusCodes.Status404NotFound, title: "Şube bulunamadı") : Ok(sonuc);
+    }
+
     // ---- Personel (anonim — KVKK) ----
     [HttpPost("personel")]
     public async Task<ActionResult<PersonelYaniti>> PersonelEkle([FromBody] PersonelEkleIstegi istek, CancellationToken ct)

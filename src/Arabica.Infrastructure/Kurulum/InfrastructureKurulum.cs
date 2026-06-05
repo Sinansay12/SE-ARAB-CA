@@ -7,9 +7,11 @@ using Arabica.Domain.Optimizasyon;
 using Arabica.Infrastructure.Cikti;
 using Arabica.Infrastructure.Denetim;
 using Arabica.Application.Gozlem;
+using Arabica.Application.Transferler;
 using Arabica.Application.Yonetim;
 using Arabica.Contracts.Entegrasyon;
 using Arabica.Infrastructure.Esb;
+using Arabica.Infrastructure.Transferler;
 using Arabica.Infrastructure.Gozlem;
 using Arabica.Infrastructure.Kimlik;
 using Arabica.Infrastructure.Mesajlasma;
@@ -54,6 +56,7 @@ public static class InfrastructureKurulum
         services.AddScoped<IOutbox, Outbox>();
         services.AddScoped<IOutboxDeposu, OutboxDeposu>();
         services.AddScoped<OutboxGonderici>();
+        services.AddScoped<ITransferTamamlayici, TransferTamamlamaServisi>();
 
         services.AddSingleton<IZamanSaglayici, SistemZamanSaglayici>();
         services.AddSingleton<IStratejiSecimi, StratejiSecimi>();

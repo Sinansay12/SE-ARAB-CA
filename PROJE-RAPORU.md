@@ -354,7 +354,7 @@ Mevcut mimariye **eklemeli** olarak (5 frozen sözleşme, KVKK, İş Kanunu, out
 ### Yeni backend uçları (hepsi `/api/v1/admin/*`, Bölge Koordinatörü; CQRS + ProblemDetails-TR + denetim)
 | Uç | İşlev | Desen / gate |
 |----|-------|--------------|
-| `GET/POST/PUT/PATCH /admin/sube` | Şube CRUD + **pasifleştir** (soft-delete; `hot.sube.aktif`) | yeni Liquibase changeset; geçmiş korunur |
+| `GET/POST/PUT/PATCH /admin/sube` | Şube CRUD + **pasifleştir / aktifleştir** (soft-delete ↔ geri alma; `hot.sube.aktif`) | yeni Liquibase changeset; geçmiş korunur |
 | `POST /admin/personel` | Anonim barista ekleme — **KVKK: yalnız TakmaAd + ID** (PII alanı YOK) | KVKK; `hot.personel` |
 | `POST /admin/transfer/manuel` | Manuel transfer emri (BEKLIYOR → /oneriler + canlı bildirim) | **Factory Method** + outbox→ESB |
 | `POST /admin/optimizasyon/tetikle` | Canlı motor: darboğaz tespiti → öneri üretimi | **Strategy** + İş Kanunu (CoR) |
@@ -392,20 +392,74 @@ Yeni ESB integration olayı **`TransferOnerildi`** (yeni BEKLIYOR öneriler) out
 
 | Proje | Test | Kapsam |
 |-------|:----:|--------|
-| `Arabica.Domain.Tests` | 37 | Durum makinesi, İş Kanunu CoR, doluluk hesabı, Strategy, Factory |
-| `Arabica.Application.Tests` | 11 | CQRS handler atomikliği, TransactionBehavior, Observer fan-out, Builder |
-| `Arabica.Api.Tests` | 26 | 5 uç sözleşmesi, JWT, RBAC (+ **şube-kapsam**), MFA, durum makinesi (HTTP), `/transfer/gecmis`, **+11 admin** (Şube CRUD, KVKK-no-PII, manuel transfer, optimizasyon, strateji, denetim, özet, müdür 403) |
-| `Arabica.Integration.Tests` | 13 | Gerçek Postgres (outbox atomikliği, şema izolasyonu), gerçek Kafka, ESB 2-consumer harness |
-| **Toplam** | **87** | `dotnet test` (proje-bazlı) — 0 başarısız, 0 atlanan |
+| `Arabica.Domain.Tests` | 37 | Durum makinesi, İş Kanunu CoR, doluluk hesabı, Strategy, Factory, **personel ±N varlık davranışı** |
+| `Arabica.Application.Tests` | 12 | CQRS handler atomikliği, TransactionBehavior, Observer fan-out, Builder, **ONAYLA→tamamlayıcı delegasyonu + yetersiz-personel hatası** |
+| `Arabica.Api.Tests` | 32 | 5 uç sözleşmesi, JWT, RBAC (+ **şube-kapsam**), MFA, durum makinesi (HTTP), `/transfer/gecmis`, **+11 admin**, **+4 personel-taşıma** (Personel ±N, Ekipman nötr, kapasite-aşımı 409, idempotent çift-taşıma yok), **+2 şube aktifleştirme** (pasif→doluluk geri döner, 404) |
+| `Arabica.Integration.Tests` | 13 | Gerçek Postgres (outbox + **atomik personel-taşıma** atomikliği, şema izolasyonu), gerçek Kafka, ESB 2-consumer harness |
+| **Toplam** | **94** | `dotnet test` (proje-bazlı) — 0 başarısız, 0 atlanan |
 
 `dotnet test` çıktısı (proje-bazlı; tam çözümü çalışan stack + Testcontainers ile aynı anda koşturmak test-host'ta OOM yaratabilir — projeler ayrı veya stack durdurularak çalıştırılmalıdır):
 ```
 Başarılı! - Başarısız: 0, Başarılı: 37, Atlanan: 0  - Arabica.Domain.Tests.dll
-Başarılı! - Başarısız: 0, Başarılı: 11, Atlanan: 0  - Arabica.Application.Tests.dll
-Başarılı! - Başarısız: 0, Başarılı: 26, Atlanan: 0  - Arabica.Api.Tests.dll
+Başarılı! - Başarısız: 0, Başarılı: 12, Atlanan: 0  - Arabica.Application.Tests.dll
+Başarılı! - Başarısız: 0, Başarılı: 32, Atlanan: 0  - Arabica.Api.Tests.dll
 Başarılı! - Başarısız: 0, Başarılı: 13, Atlanan: 0  - Arabica.Integration.Tests.dll  (gerçek Postgres + Kafka)
 ```
 > Not: `Arabica.Integration.Tests` Testcontainers ile **gerçek PostgreSQL 16 + Kafka** konteynerleri başlatır; ESB iki-consumer testi MassTransit in-memory test harness + EF InMemory ile Docker'sız çalışır.
+
+---
+
+## 11.A HOTFIX — Onayda Şube Personel Sayılarının Taşınması
+
+**Belirti:** Bir **personel** transferi onaylandığında emir tamamlanıyor fakat kaynak/hedef şubelerin `aktifPersonelSayisi` alanları güncellenmiyordu (gösterge ve doluluk hesabı tutarsız kalıyordu).
+
+**Davranış (düzeltilmiş):** Onay aksiyonu (`aksiyon=ONAYLA`) emri **Bekliyor → Onaylandı → Tamamlandı** durumuna sürer. Yalnız `tip == Personel` için kaynak şube `−Adet`, hedef şube `+Adet`; `tip == Ekipman` personel sayısını **değiştirmez** (yalnız tamamlanır).
+
+**Muhafız (NFR + İş mantığı):** Kaynak şube **aktif** ve `aktifPersonelSayisi ≥ Adet` değilse **hiçbir değişiklik yapılmadan** `409 Conflict` (ProblemDetails-TR) döner:
+> *"Kaynak şubede yeterli aktif personel yok — gerekli: {Adet}, mevcut: {X}."*
+
+**Atomiklik & tam-bir-kez (exactly-once):**
+- Taşıma, emir tamamlama ve **outbox** satırı **tek `hist` bağlantısı işlemi** içinde yürür. Kaynak azaltımı, koşullu tek `UPDATE hot.sube … WHERE aktif AND aktif_personel_sayisi ≥ {Adet}` ile yapılır; etkilenen satır 0 ise işlem **geri sarılır** (TOCTOU yok). Bu, **Hot/Hist şema izolasyonunu** korur (şemalar birleştirilmedi) ve **outbox atomiklik garantisini zayıflatmaz**.
+- **Durum makinesi** terminal emrin yeniden onayını engeller: `Tamamlandı → Onaylandı` geçişi geçersizdir → `409`, **çift taşıma yok**.
+- EF **InMemory** (birim testleri) yolu ilişkisel olmadığından aynı niyeti varlık davranış metotlarıyla (`PersonelCikarabilirMi` / `PersonelCikar` / `PersonelEkle`) gerçekler.
+
+**Bileşenler:** `ITransferTamamlayici` (Application portu) → `TransferTamamlamaServisi` (Infrastructure); komut yönlendirmesi `TransferIslemiUygulaCommandHandler` içinde; varlık davranışı `Sube` (`PersonelCikar/Ekle`); UI `app.js#onayla()` 200'de bildirim toast'ı + canlı sayaç yenilemesi, 409'da `detail` gösterir.
+
+**Canlı kanıt (gerçek HTTP; `docker compose up`, onay JWT + X-MFA-Code/TOTP ile):**
+
+| # | Senaryo | Önce | Aksiyon | Sonra | Sonuç |
+|---|---------|------|---------|-------|:-----:|
+| 1 | **Personel** Ş4→Ş2, adet=2 | Ş4=4, Ş2=3 | `200 Tamamlandi` | Ş4=**2**, Ş2=**5** | kaynak −2 / hedef +2 ✅ |
+| 2 | **Ekipman** Ş4→Ş2, adet=1 | Ş4=2, Ş2=5 | `200 Tamamlandi` | Ş4=2, Ş2=5 | personel değişmez ✅ |
+| 3 | **Kapasite aşımı** Ş2→Ş4, adet=999 | Ş2=5 | `409` *"…gerekli: 999, mevcut: 5."* | Ş2=5 | reddedildi, değişiklik yok ✅ |
+| 4 | **İdempotent** #9 tekrar onay | Ş4=2, Ş2=5 | `409` *"Tamamlandi → Onaylandi"* | Ş4=2, Ş2=5 | çift taşıma yok ✅ |
+
+**Regresyon:** Etkilenen testler güncellendi (onay sonucu `Onaylandı` → `Tamamlandı`) ve 5 yeni test eklendi (Application 11→12, Api 26→30, Integration'da gerçek-PG atomik taşıma). Toplam **92 test** yeşil (§11).
+
+---
+
+## 11.B HOTFIX #2 — Pasif Şubenin Yeniden Aktifleştirilmesi
+
+**Belirti:** `Sube.Aktiflestir()` etki alanında vardı ama hiçbir komut/uca **bağlanmamıştı**; yalnız `pasiflestir` ucu mevcuttu. Pasifleştirilmiş bir şube (`hot.sube.aktif = false`) doluluk/optimizasyon dışında kalıyor ve **geri getirilemiyordu** (`PATCH /admin/sube/{id}/aktiflestir` → 404). İki şube (#1 *Isparta Merkez*, #3 *Gölcük Sahil*) bu yüzden kalıcı pasif durumdaydı.
+
+**Düzeltme (eklemeli):**
+- `SubeAktiflestirCommand` + handler → `Sube.Aktiflestir()` çağırır, **denetim-on-write** (`ADMIN:SubeAktiflestir`, aktör+IP+zaman), güncel `SubeYonetimYaniti` döner.
+- `PATCH /api/v1/admin/sube/{id}/aktiflestir` — `Koordinator` policy, ProblemDetails-TR, şube yoksa **404**.
+- Handler, **pasif** şubeyi id ile yükler: `ISubeRepository.GetirAsync` aktif-filtresi uygulamaz (`AktifleriGetirAsync` pasifleri hariç tutar). Yeniden aktifleşen şube `AktifleriGetirAsync` ile tekrar listelenir → **doluluk + optimizasyona geri döner**.
+- **UI** (`app.js`, Şubeler tablosu): pasif satırlarda artık **"Aktifleştir"** düğmesi (aktif satırlarda "Pasifleştir" kalır); yeniden aktifleştirme sonrası tablo + doluluk yenilenir.
+
+**Canlı kanıt (gerçek HTTP; koordinatör JWT):**
+
+| Aksiyon | Sonuç |
+|---------|:-----:|
+| `GET /sube/doluluk` (önce) | `[2, 4]` (şube 1 & 3 pasif) |
+| `PATCH /admin/sube/1/aktiflestir` | `200`, `aktif=true` ✅ |
+| `PATCH /admin/sube/3/aktiflestir` | `200`, `aktif=true` ✅ |
+| `GET /sube/doluluk` (sonra) | `[1, 2, 3, 4]` — #1 & #3 geri döndü ✅ |
+| Şube Müdürü `PATCH /admin/sube/1/aktiflestir` | `403` (RBAC) ✅ |
+| Koordinatör `PATCH /admin/sube/9999/aktiflestir` | `404` ✅ |
+
+**Regresyon:** 2 yeni Api testi (pasif→aktif→doluluk geri döner; bilinmeyen şube 404) + müdür-403 onayı; Fix #1'in personel-taşıma davranışına dokunulmadı. Toplam **94 test** yeşil (§11).
 
 ---
 
@@ -417,4 +471,4 @@ Java → .NET eşlemesi `migration-blueprint.md`'de tam tablodadır. Özet: Java
 
 ## 13. Sonuç
 
-10 zorunlu kapının tamamı karşılanmıştır: çalışan sistem (`docker compose up`), Onion mimarisi, gerçek CQRS, MassTransit ESB (Kafka rider, 2 consumer), SignalR gerçek-zaman, ≥2/3/4 tasarım deseni, OOP/SOLID ve Türkçe rapor. Tüm önceki garantiler korunmuştur: 5 frozen sözleşme, `TransferEmri` durum makinesi, KVKK anonimleştirme, İş Kanunu muhafızları, transactional outbox atomikliği, Hot/History/kimlik şema izolasyonu ve şema otoritesi olarak Liquibase.
+10 zorunlu kapının tamamı karşılanmıştır: çalışan sistem (`docker compose up`), Onion mimarisi, gerçek CQRS, MassTransit ESB (Kafka rider, 2 consumer), SignalR gerçek-zaman, ≥2/3/4 tasarım deseni, OOP/SOLID ve Türkçe rapor. Tüm önceki garantiler korunmuştur: 5 frozen sözleşme, `TransferEmri` durum makinesi, KVKK anonimleştirme, İş Kanunu muhafızları, transactional outbox atomikliği, Hot/History/kimlik şema izolasyonu ve şema otoritesi olarak Liquibase. **HOTFIX #1 (§11.A):** personel transferi onayında şube personel sayıları, emir tamamlama ve outbox satırı ile **tek işlemde, atomik ve tam-bir-kez** taşınır; yetersiz personelde değişiklik yapılmadan `409` döner. **HOTFIX #2 (§11.B):** pasifleştirilmiş şube `PATCH /admin/sube/{id}/aktiflestir` ile (Koordinatör) yeniden aktifleştirilebilir ve doluluk/optimizasyona geri döner.

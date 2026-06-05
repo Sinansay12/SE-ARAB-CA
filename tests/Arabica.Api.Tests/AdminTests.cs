@@ -69,6 +69,33 @@ public sealed class AdminTests
     }
 
     [Fact]
+    public async Task SubeAktiflestir_pasif_subeyi_dolulukda_geri_getirir()
+    {
+        using var f = new ApiFabrika();
+        var c = await KoordinatorAsync(f);
+
+        // önce pasifleştir → doluluk/optimizasyon dışında kalır
+        (await c.PatchAsync("/api/v1/admin/sube/2/pasiflestir", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await c.GetFromJsonAsync<List<SubeDolulukYaniti>>("/api/v1/sube/doluluk"))!.Should().NotContain(s => s.SubeId == 2);
+
+        // aktifleştir → 200, aktif=true
+        var r = await c.PatchAsync("/api/v1/admin/sube/2/aktiflestir", null);
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await r.Content.ReadFromJsonAsync<SubeYonetimYaniti>())!.Aktif.Should().BeTrue();
+
+        // AktifleriGetirAsync yine içerir → doluluk + optimizasyona geri döner
+        (await c.GetFromJsonAsync<List<SubeDolulukYaniti>>("/api/v1/sube/doluluk"))!.Should().Contain(s => s.SubeId == 2);
+    }
+
+    [Fact]
+    public async Task SubeAktiflestir_bilinmeyen_sube_404()
+    {
+        using var f = new ApiFabrika();
+        var c = await KoordinatorAsync(f);
+        (await c.PatchAsync("/api/v1/admin/sube/9999/aktiflestir", null)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task Admin_uclari_sube_muduru_icin_403()
     {
         using var f = new ApiFabrika();
@@ -76,6 +103,7 @@ public sealed class AdminTests
         (await c.PostAsJsonAsync("/api/v1/admin/sube", new SubeOlusturIstegi("X", 10, 0))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await c.GetAsync("/api/v1/admin/denetim")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await c.PostAsync("/api/v1/admin/optimizasyon/tetikle", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await c.PatchAsync("/api/v1/admin/sube/1/aktiflestir", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     // ---- Personel (KVKK) ----

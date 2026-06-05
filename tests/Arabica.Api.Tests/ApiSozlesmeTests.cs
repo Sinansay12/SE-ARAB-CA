@@ -33,15 +33,24 @@ public sealed class ApiSozlesmeTests
         => c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
     // Seeds a pending transfer between the given branches directly (bypassing the engine) and returns its id.
-    private static long TransferTohumla(ApiFabrika fabrika, int kaynak, int hedef)
+    private static long TransferTohumla(ApiFabrika fabrika, int kaynak, int hedef, int adet = 1, string tip = "Personel")
     {
         using var scope = fabrika.Services.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<HistoryDbContext>();
         var fk = scope.ServiceProvider.GetRequiredService<ITransferEmriFactory>();
-        var emir = fk.PersonelTransferiOlustur(kaynak, hedef, 1, new DateTimeOffset(2026, 6, 5, 9, 0, 0, TimeSpan.Zero));
+        var an = new DateTimeOffset(2026, 6, 5, 9, 0, 0, TimeSpan.Zero);
+        var emir = tip == "Ekipman"
+            ? fk.EkipmanTransferiOlustur(kaynak, hedef, adet, an)
+            : fk.PersonelTransferiOlustur(kaynak, hedef, adet, an);
         ctx.TransferEmirleri.Add(emir);
         ctx.SaveChanges();
         return emir.EmirId;
+    }
+
+    private static async Task<int> PersonelSayisiAsync(HttpClient c, int subeId)
+    {
+        var liste = await c.GetFromJsonAsync<List<SubeDolulukYaniti>>("/api/v1/sube/doluluk");
+        return liste!.First(s => s.SubeId == subeId).AktifPersonelSayisi;
     }
 
     private static HttpRequestMessage OnayIstegi(long transferId)
@@ -152,7 +161,7 @@ public sealed class ApiSozlesmeTests
     }
 
     [Fact]
-    public async Task Islem_onayla_gecerli_MFA_ile_200_ve_Onaylandi()
+    public async Task Islem_onayla_gecerli_MFA_ile_200_ve_Tamamlandi()
     {
         using var fabrika = new ApiFabrika();
         using var c = fabrika.CreateClient();
@@ -168,7 +177,7 @@ public sealed class ApiSozlesmeTests
 
         yanit.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await yanit.Content.ReadFromJsonAsync<TransferIslemYaniti>();
-        body!.Durum.Should().Be("Onaylandi");
+        body!.Durum.Should().Be("Tamamlandi"); // ONAYLA → Bekliyor→Onaylandı→Tamamlandı
     }
 
     [Fact]
@@ -220,7 +229,7 @@ public sealed class ApiSozlesmeTests
         var yanit = await c.SendAsync(OnayIstegi(transferId));
 
         yanit.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await yanit.Content.ReadFromJsonAsync<TransferIslemYaniti>())!.Durum.Should().Be("Onaylandi");
+        (await yanit.Content.ReadFromJsonAsync<TransferIslemYaniti>())!.Durum.Should().Be("Tamamlandi");
     }
 
     [Fact]
@@ -257,5 +266,71 @@ public sealed class ApiSozlesmeTests
         Yetkilendir(c, await TokenAlAsync(c, DemoVeriler.MudurKullanici));
 
         (await c.GetAsync("/api/v1/transfer/gecmis")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    // ---- HOTFIX: staff counts move on approval (completion) ----
+
+    [Fact]
+    public async Task Onayla_personel_transferi_personel_sayilarini_tasir()
+    {
+        using var f = new ApiFabrika();
+        using var c = f.CreateClient();
+        Yetkilendir(c, await TokenAlAsync(c, DemoVeriler.KoordinatorKullanici));
+        var kaynakOnce = await PersonelSayisiAsync(c, 1); // seed: Merkez = 5
+        var hedefOnce = await PersonelSayisiAsync(c, 2);  // seed: Kampüs = 2
+        var tid = TransferTohumla(f, kaynak: 1, hedef: 2, adet: 2, tip: "Personel");
+
+        (await c.SendAsync(OnayIstegi(tid))).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await PersonelSayisiAsync(c, 1)).Should().Be(kaynakOnce - 2); // −N
+        (await PersonelSayisiAsync(c, 2)).Should().Be(hedefOnce + 2);  // +N
+    }
+
+    [Fact]
+    public async Task Onayla_ekipman_transferi_personel_sayilarini_degistirmez()
+    {
+        using var f = new ApiFabrika();
+        using var c = f.CreateClient();
+        Yetkilendir(c, await TokenAlAsync(c, DemoVeriler.KoordinatorKullanici));
+        var kaynakOnce = await PersonelSayisiAsync(c, 1);
+        var hedefOnce = await PersonelSayisiAsync(c, 2);
+        var tid = TransferTohumla(f, kaynak: 1, hedef: 2, adet: 1, tip: "Ekipman");
+
+        (await c.SendAsync(OnayIstegi(tid))).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await PersonelSayisiAsync(c, 1)).Should().Be(kaynakOnce); // değişmez
+        (await PersonelSayisiAsync(c, 2)).Should().Be(hedefOnce);
+    }
+
+    [Fact]
+    public async Task Onayla_yetersiz_personel_409_ve_hicbir_degisiklik_yok()
+    {
+        using var f = new ApiFabrika();
+        using var c = f.CreateClient();
+        Yetkilendir(c, await TokenAlAsync(c, DemoVeriler.KoordinatorKullanici));
+        var kaynakOnce = await PersonelSayisiAsync(c, 2); // Kampüs = 2
+        var tid = TransferTohumla(f, kaynak: 2, hedef: 1, adet: 99, tip: "Personel"); // 99 > 2
+
+        var yanit = await c.SendAsync(OnayIstegi(tid));
+
+        yanit.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await PersonelSayisiAsync(c, 2)).Should().Be(kaynakOnce); // değişmedi
+        (await c.GetFromJsonAsync<List<TransferOneriYaniti>>("/api/v1/transfer/oneriler"))!
+            .Should().Contain(o => o.TransferId == tid && o.Durum == "Bekliyor"); // hâlâ Bekliyor
+    }
+
+    [Fact]
+    public async Task Onayla_terminal_emri_tekrar_onaylayinca_409_ve_cift_tasima_yok()
+    {
+        using var f = new ApiFabrika();
+        using var c = f.CreateClient();
+        Yetkilendir(c, await TokenAlAsync(c, DemoVeriler.KoordinatorKullanici));
+        var tid = TransferTohumla(f, kaynak: 1, hedef: 2, adet: 1, tip: "Personel");
+        (await c.SendAsync(OnayIstegi(tid))).StatusCode.Should().Be(HttpStatusCode.OK); // → Tamamlandı
+        var kaynakSonra = await PersonelSayisiAsync(c, 1);
+
+        (await c.SendAsync(OnayIstegi(tid))).StatusCode.Should().Be(HttpStatusCode.Conflict); // terminal → 409
+
+        (await PersonelSayisiAsync(c, 1)).Should().Be(kaynakSonra); // çift taşıma yok
     }
 }

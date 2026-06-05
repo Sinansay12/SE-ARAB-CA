@@ -324,9 +324,16 @@ async function mfaDemoDoldur() { el("mfaKod").value = await totpUret(MFA_SECRET)
 async function onayla(id) {
     const kod = (el("mfaKod").value || "").trim();
     const r = await api("POST", "/api/v1/transfer/islem", { transferId: id, aksiyon: "ONAYLA" }, { "X-MFA-Code": kod });
-    if (r.status === 200) { modalKapat(); toast(`Transfer #${id} onaylandı.`, "success"); transferlerYukle(); }
+    if (r.status === 200) {
+        modalKapat();
+        const durum = r.data?.durum || "Tamamlandi";
+        toast(`Transfer #${id} ${durum.toLowerCase()}; personel sayıları güncellendi.`, "success");
+        transferlerYukle();
+        // counts refresh live via SignalR DolulukGuncellendi; if already on panel, pull immediately too.
+        if (location.hash.startsWith("#/panel")) panelYenile();
+    }
     else if (r.status === 401) { el("mfaHata").textContent = "MFA kodu geçersiz veya eksik."; }
-    else if (r.status === 409) { modalKapat(); toast("Geçersiz durum geçişi (transfer zaten işlenmiş).", "danger"); transferlerYukle(); }
+    else if (r.status === 409) { modalKapat(); toast(r.data?.detail || r.data?.title || "Geçersiz işlem (örn. yetersiz personel veya zaten işlenmiş).", "danger"); transferlerYukle(); }
     else if (r.status === 403) { modalKapat(); toast("Bu transfer şubenizi ilgilendirmiyor (RBAC).", "danger"); }
     else { el("mfaHata").textContent = "Hata: HTTP " + r.status; }
 }
@@ -384,7 +391,9 @@ async function subeListeYukle() {
         r.data.map((s) => `<tr><td>${s.subeId}</td><td>${esc(s.ad)}</td><td>${s.maksimumKapasite}</td><td>${s.anlikMusteriSayisi}</td><td>${s.aktifPersonelSayisi}</td>
           <td><span class="badge bg-${s.aktif ? "success" : "secondary"}">${s.aktif ? "Aktif" : "Pasif"}</span></td>
           <td><button class="btn btn-sm btn-outline-secondary" onclick='subeModalAc(${JSON.stringify(s)})'>Düzenle</button>
-              ${s.aktif ? `<button class="btn btn-sm btn-outline-danger" onclick="subePasiflestir(${s.subeId})">Pasifleştir</button>` : ""}</td></tr>`).join("")
+              ${s.aktif
+                  ? `<button class="btn btn-sm btn-outline-danger" onclick="subePasiflestir(${s.subeId})">Pasifleştir</button>`
+                  : `<button class="btn btn-sm btn-outline-success" onclick="subeAktiflestir(${s.subeId})">Aktifleştir</button>`}</td></tr>`).join("")
     }</tbody></table>`;
 }
 function subeModalAc(s) {
@@ -411,6 +420,10 @@ async function subePasiflestir(id) {
     if (!confirm("Şube pasifleştirilsin mi? (doluluk/optimizasyon dışı kalır, geçmiş korunur)")) return;
     const r = await api("PATCH", `/api/v1/admin/sube/${id}/pasiflestir`);
     if (r.ok) { toast("Şube pasifleştirildi.", "success"); subeListeYukle(); } else toast("Hata: HTTP " + r.status, "danger");
+}
+async function subeAktiflestir(id) {
+    const r = await api("PATCH", `/api/v1/admin/sube/${id}/aktiflestir`);
+    if (r.ok) { toast("Şube aktifleştirildi. (doluluk/optimizasyona geri döner)", "success"); subeListeYukle(); } else toast("Hata: HTTP " + r.status, "danger");
 }
 
 /* ---------- YÖNETİM: Personel (KVKK) ---------- */
