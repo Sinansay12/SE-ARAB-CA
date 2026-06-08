@@ -64,7 +64,28 @@ docker compose down -v    # konteyner + veriyi sil (temiz başlangıç; demo ver
 
 ---
 
-## 🧪 Testleri çalıştırma (opsiyonel)
+## 🧪 Testler
+
+### ✅ Sonuçlar — **95 test · 0 başarısız · 0 atlanan**
+
+| Test Projesi | Test | Türü | Kapsam |
+|---|:--:|---|---|
+| `Arabica.Domain.Tests` | **37** | Birim (saf) | Durum makinesi, İş Kanunu zinciri (CoR), doluluk hesabı, Strategy, Factory |
+| `Arabica.Application.Tests` | **12** | Birim (sahte) | CQRS handler'ları, MediatR pipeline (Transaction), Observer, Builder/Factory |
+| `Arabica.Api.Tests` | **33** | Entegrasyon (in-process) | 5 frozen uç, JWT/RBAC, MFA, durum makinesi (HTTP), yönetim uçları, KVKK |
+| `Arabica.Integration.Tests` | **13** | Entegrasyon (gerçek) | Testcontainers: gerçek **Postgres 16 + Kafka**, outbox→ESB, atomiklik, şema izolasyonu |
+| **TOPLAM** | **95** | | |
+
+```
+Başarılı! - Başarısız: 0, Başarılı: 37, Atlanan: 0  - Arabica.Domain.Tests.dll
+Başarılı! - Başarısız: 0, Başarılı: 12, Atlanan: 0  - Arabica.Application.Tests.dll
+Başarılı! - Başarısız: 0, Başarılı: 33, Atlanan: 0  - Arabica.Api.Tests.dll
+Başarılı! - Başarısız: 0, Başarılı: 13, Atlanan: 0  - Arabica.Integration.Tests.dll  (gerçek Postgres + Kafka)
+```
+
+> 📋 Her testin tek tek ne doğruladığı, kullanılan teknikler (xUnit, FluentAssertions, EF InMemory, WebApplicationFactory, Testcontainers, MassTransit harness) ve olası sınav sorularına hazır cevaplar için: **[TEST-RAPORU.md](TEST-RAPORU.md)**.
+
+### Çalıştırma
 
 Testleri Docker dışında çalıştırmak için **.NET 8 SDK** gerekir (.NET 9 SDK de `net8.0` derler). Entegrasyon testleri **Docker'ın açık olmasını** ister (Testcontainers ile gerçek Postgres + Kafka başlatır).
 
@@ -99,6 +120,7 @@ Arabica/
 ├─ docker/Dockerfile           # Çok aşamalı .NET 8 imajı
 ├─ docker-compose.yml          # app + postgres + kafka + liquibase
 ├─ PROJE-RAPORU.md             # Detaylı rapor (10 kapı, diyagramlar, çalıştırma kanıtı)
+├─ TEST-RAPORU.md              # Test raporu (95 test, tek tek açıklama + SSS)
 ├─ UYUMLULUK-PLANI.md          # Uyumluluk planı
 └─ migration-blueprint.md      # Java/Spring → .NET 8 eşleme planı
 ```
